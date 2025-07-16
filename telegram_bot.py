@@ -1,32 +1,47 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CallbackContext, CommandHandler, CallbackQueryHandler, Updater
-from controle import bot_ativo
-
+from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
 import os
+from pocket_option import obter_saldo  # função que retorna saldo da conta real
+
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-updater = Updater(TOKEN)
-dispatcher = updater.dispatcher
+def start(update: Update, context: CallbackContext):
+    chat_id = update.effective_chat.id
 
-def painel(update: Update, context: CallbackContext):
-    keyboard = [[
-        InlineKeyboardButton("Start bot ✅", callback_data='start'),
-        InlineKeyboardButton("Stop bot ⛔", callback_data='stop')
-    ]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("Painel de controle:", reply_markup=reply_markup)
+    # Mensagem principal
+    mensagem = "Bom dia Trader, estamos em operação 💸🤖\n\n"
+    saldo = obter_saldo()
+    mensagem += f"💰 Seu saldo atual: ${saldo}"
 
-def botao(update: Update, context: CallbackContext):
-    global bot_ativo
+    # Botões visuais
+    botoes = [
+        [InlineKeyboardButton("⛔ Stop bot", callback_data="stop_bot")],
+        [InlineKeyboardButton("🔁 Reiniciar bot", callback_data="restart_bot")]
+    ]
+    reply_markup = InlineKeyboardMarkup(botoes)
+
+    context.bot.send_message(chat_id=chat_id, text=mensagem, reply_markup=reply_markup)
+
+def tratar_botoes(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
-    if query.data == 'start':
-        bot_ativo = True
-        query.edit_message_text("Bot reativado ✅")
-    elif query.data == 'stop':
-        bot_ativo = False
-        query.edit_message_text("Bot pausado ⛔")
 
-dispatcher.add_handler(CommandHandler("painel", painel))
-dispatcher.add_handler(CallbackQueryHandler(botao))
+    if query.data == "stop_bot":
+        query.edit_message_text("⛔ Bot pausado (visual). Ele continua automático das 6h às 11h.")
+    elif query.data == "restart_bot":
+        query.edit_message_text("🔁 Bot reiniciado (visual). Ele roda automaticamente às 6h.")
+
+def main():
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
+
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CallbackQueryHandler(tratar_botoes))
+
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == "__main__":
+    main()
+    
