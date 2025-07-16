@@ -4,3 +4,4 @@ tradingview_ta
 python-telegram-bot==13.15
 selenium
 pytz
+webdriver-manager
