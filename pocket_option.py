@@ -43,4 +43,49 @@ def obter_saldo():
     except Exception as e:
         print(f"[ERRO] Falha ao obter saldo: {e}")
         return "Erro"
-        
+
+def entrar_na_pocket_option(ativo, direcao, valor):
+    try:
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+
+        driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+        driver.get("https://pocketoption.com/pt/login/")
+        time.sleep(3)
+
+        driver.find_element(By.NAME, "email").send_keys(EMAIL)
+        driver.find_element(By.NAME, "password").send_keys(SENHA)
+        driver.find_element(By.XPATH, "//button[@type='submit']").click()
+        time.sleep(5)
+
+        driver.get("https://pocketoption.com/pt/platform/")
+        time.sleep(5)
+
+        # Seleciona par
+        search_box = driver.find_element(By.XPATH, "//input[@placeholder='Pesquisar']")
+        search_box.clear()
+        search_box.send_keys(ativo)
+        time.sleep(2)
+        driver.find_element(By.XPATH, f"//div[contains(text(), '{ativo}')]").click()
+        time.sleep(3)
+
+        # Define valor da entrada
+        valor_input = driver.find_element(By.XPATH, "//input[@name='amount']")
+        valor_input.clear()
+        valor_input.send_keys(str(valor))
+        time.sleep(1)
+
+        # Clique de entrada
+        if direcao == "STRONG_BUY":
+            driver.find_element(By.CLASS_NAME, "deal__rise").click()
+        elif direcao == "STRONG_SELL":
+            driver.find_element(By.CLASS_NAME, "deal__fall").click()
+
+        print(f"Entrada executada: {ativo} | {direcao} | ${valor}")
+        driver.quit()
+
+    except Exception as e:
+        print(f"[ERRO] Falha na entrada real: {e}")
