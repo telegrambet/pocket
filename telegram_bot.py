@@ -1,20 +1,20 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
 import os
-from pocket_option import obter_saldo  # função que retorna saldo da conta real
+from pocket_option import obter_saldo  # pega saldo real com Selenium
+import controle  # usa variável bot_ativo
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def start(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
 
-    # Mensagem principal
+    # Frase e saldo
     mensagem = "Bom dia Trader, estamos em operação 💸🤖\n\n"
     saldo = obter_saldo()
     mensagem += f"💰 Seu saldo atual: ${saldo}"
 
-    # Botões visuais
+    # Botões (visuais no /start, mas funcionais nos cliques)
     botoes = [
         [InlineKeyboardButton("⛔ Stop bot", callback_data="stop_bot")],
         [InlineKeyboardButton("🔁 Reiniciar bot", callback_data="restart_bot")]
@@ -28,9 +28,11 @@ def tratar_botoes(update: Update, context: CallbackContext):
     query.answer()
 
     if query.data == "stop_bot":
-        query.edit_message_text("⛔ Bot pausado (visual). Ele continua automático das 6h às 11h.")
+        controle.bot_ativo = False
+        query.edit_message_text("⛔ Bot pausado manualmente. Ele não fará operações.")
     elif query.data == "restart_bot":
-        query.edit_message_text("🔁 Bot reiniciado (visual). Ele roda automaticamente às 6h.")
+        controle.bot_ativo = True
+        query.edit_message_text("🔁 Bot reativado manualmente. Ele voltará a operar das 6h às 11h.")
 
 def main():
     updater = Updater(TOKEN, use_context=True)
@@ -44,4 +46,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
