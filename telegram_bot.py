@@ -1,48 +1,37 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
+from telegram.ext import CommandHandler, CallbackContext, ApplicationBuilder, CallbackQueryHandler
 import os
-from pocket_option import obter_saldo  # pega saldo real com Selenium
-import controle  # usa variável bot_ativo
+from controle import bot_ativo
+from pocket_option import obter_saldo
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-def start(update: Update, context: CallbackContext):
-    chat_id = update.effective_chat.id
-
-    # Frase e saldo
-    mensagem = "Bom dia Trader, estamos em operação 💸🤖\n\n"
+async def start(update: Update, context: CallbackContext):
     saldo = obter_saldo()
-    mensagem += f"💰 Seu saldo atual: ${saldo}"
-
-    # Botões (visuais no /start, mas funcionais nos cliques)
-    botoes = [
-        [InlineKeyboardButton("⛔ Stop bot", callback_data="stop_bot")],
-        [InlineKeyboardButton("🔁 Reiniciar bot", callback_data="restart_bot")]
+    keyboard = [
+        [InlineKeyboardButton("🔴 Stop bot", callback_data="stop")],
+        [InlineKeyboardButton("🟢 Reiniciar bot", callback_data="start")]
     ]
-    reply_markup = InlineKeyboardMarkup(botoes)
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        f"Bom dia Trader, estamos em operação 💸🤖\n\n💰 Saldo atual: ${saldo}",
+        reply_markup=reply_markup
+    )
 
-    context.bot.send_message(chat_id=chat_id, text=mensagem, reply_markup=reply_markup)
-
-def tratar_botoes(update: Update, context: CallbackContext):
+async def botao_handler(update: Update, context: CallbackContext):
     query = update.callback_query
-    query.answer()
+    await query.answer()
 
-    if query.data == "stop_bot":
-        controle.bot_ativo = False
-        query.edit_message_text("⛔ Bot pausado manualmente. Ele não fará operações.")
-    elif query.data == "restart_bot":
-        controle.bot_ativo = True
-        query.edit_message_text("🔁 Bot reativado manualmente. Ele voltará a operar das 6h às 11h.")
+    if query.data == "start":
+        context.bot_data["bot_ativo"] = True
+        await query.edit_message_text("🟢 Bot reativado com sucesso!")
+    elif query.data == "stop":
+        context.bot_data["bot_ativo"] = False
+        await query.edit_message_text("🔴 Bot pausado!")
 
-def main():
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
-
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CallbackQueryHandler(tratar_botoes))
-
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == "__main__":
-    main()
+def iniciar_telegram_bot():
+    application = ApplicationBuilder().token(TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(botao_handler))
+    application.bot_data["bot_ativo"] = True
+    application.run_polling()
