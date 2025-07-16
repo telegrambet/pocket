@@ -16,6 +16,7 @@ def obter_saldo():
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
 
+        # ✅ WebDriverManager usado corretamente aqui
         driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
         driver.get("https://pocketoption.com/pt/login/")
         time.sleep(3)
@@ -64,7 +65,6 @@ def entrar_na_pocket_option(ativo, direcao, valor):
         driver.get("https://pocketoption.com/pt/platform/")
         time.sleep(5)
 
-        # Seleciona par
         search_box = driver.find_element(By.XPATH, "//input[@placeholder='Pesquisar']")
         search_box.clear()
         search_box.send_keys(ativo)
@@ -72,13 +72,11 @@ def entrar_na_pocket_option(ativo, direcao, valor):
         driver.find_element(By.XPATH, f"//div[contains(text(), '{ativo}')]").click()
         time.sleep(3)
 
-        # Define valor da entrada
         valor_input = driver.find_element(By.XPATH, "//input[@name='amount']")
         valor_input.clear()
         valor_input.send_keys(str(valor))
         time.sleep(1)
 
-        # Clique de entrada
         if direcao == "STRONG_BUY":
             driver.find_element(By.CLASS_NAME, "deal__rise").click()
         elif direcao == "STRONG_SELL":
@@ -89,3 +87,4 @@ def entrar_na_pocket_option(ativo, direcao, valor):
 
     except Exception as e:
         print(f"[ERRO] Falha na entrada real: {e}")
+        
