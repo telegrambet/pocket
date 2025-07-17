@@ -119,3 +119,18 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from tradingview import verificar_sinais
+
+def iniciar_agendamento():
+    scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
+    scheduler.add_job(verificar_sinais, 'interval', minutes=1)
+    scheduler.start()
+
+# Dentro do main()
+if __name__ == '__main__':
+    print("Bot iniciado...")
+    iniciar_agendamento()
+    application.run_polling()
+    
