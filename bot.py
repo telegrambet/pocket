@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 
 # Carregar variáveis de ambiente
 load_dotenv()
-TOKEN_BOT = os.getenv("TOKEN_BOT")
+TOKEN_BOT = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # Logs
