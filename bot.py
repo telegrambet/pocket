@@ -8,6 +8,8 @@ from telegram.ext import (
     CommandHandler,
     CallbackQueryHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 from signals import (
     carregar_sinais,
@@ -23,22 +25,22 @@ load_dotenv()
 TOKEN_BOT = os.getenv("TOKEN_BOT")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Ativar logs
+# Logs
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 pares_suportados = ["EURUSD", "EURJPY", "EURGBP", "GBPJPY", "USDJPY"]
 
-# START
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Cadastrar sinais", callback_data="cadastrar")],
-        [InlineKeyboardButton("Excluir sinais", callback_data="excluir")]
+        [InlineKeyboardButton("Excluir sinais", callback_data="excluir")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Bem-vindo, meu trader 🤖💸", reply_markup=reply_markup)
 
-# CALLBACK DOS BOTÕES
+# Botões
 async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -49,7 +51,7 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         excluir_todos_sinais()
         await query.edit_message_text("Todos os sinais foram excluídos.")
 
-# RECEBER NOVO SINAL
+# Receber novo sinal
 async def receber_sinal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto = update.message.text.strip().upper()
     if ";" in texto:
@@ -68,7 +70,7 @@ async def receber_sinal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Formato inválido. Use: M5;PAR;HORA;DIREÇÃO")
 
-# VERIFICADOR DE SINAIS TÉCNICOS + COMPARAÇÃO
+# Verificação de sinais
 async def verificar_sinais():
     while True:
         sinais_tecnicos = buscar_sinal_tecnico()
@@ -80,7 +82,7 @@ async def verificar_sinais():
             if not info:
                 continue
 
-            direcao = info.get("sinal")  # STRONG_BUY ou STRONG_SELL
+            direcao = info.get("sinal")
             if direcao not in ["STRONG_BUY", "STRONG_SELL"]:
                 continue
 
@@ -100,7 +102,6 @@ async def verificar_sinais():
                 if direcao.endswith("SELL") and sinal_manual["direcao"] != "PUT":
                     continue
 
-                # Verificar se está dentro da 1h de tolerância
                 hora_sinal = datetime.strptime(sinal_manual["hora"], "%H:%M")
                 hora_sinal = agora.replace(hour=hora_sinal.hour, minute=hora_sinal.minute, second=0, microsecond=0)
                 if agora <= hora_sinal <= agora + timedelta(hours=1):
@@ -112,26 +113,25 @@ async def verificar_sinais():
                         f"📉 Técnicos: {direcao}, RSI: {rsi}, MACD: {macd}, STOCH: {estocastico}"
                     )
                     await enviar_mensagem(mensagem)
-        await asyncio.sleep(60)  # Verifica a cada minuto
+        await asyncio.sleep(60)
 
-# ENVIO DE MENSAGEM
+# Enviar mensagem
 async def enviar_mensagem(texto):
     from telegram import Bot
     bot = Bot(token=TOKEN_BOT)
     await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=texto)
 
-# MAIN
+# Main
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN_BOT).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(botoes))
-    app.add_handler(CommandHandler("verificar", lambda u, c: verificar_sinais()))
-    app.add_handler(CommandHandler("enviar", lambda u, c: enviar_mensagem("Teste")))
-
-    from telegram.ext import MessageHandler, filters
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_sinal))
 
-    # Rodar o verificador em segundo plano
+    # Verificador de sinais em segundo plano
     app.create_task(verificar_sinais())
 
+    print("Bot iniciado com sucesso!")
     app.run_polling()
+            
