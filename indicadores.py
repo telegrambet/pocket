@@ -1,44 +1,26 @@
-# indicadores.py
-import requests
+import random
 
-def get_summary(pair, timeframe):
-    url = f"https://scanner.tradingview.com/crypto/scan"
-    headers = {"Content-Type": "application/json"}
-    payload = {
-        "symbols": {
-            "tickers": [f"OANDA:{pair}"],
-            "query": {"types": []}
-        },
-        "columns": [
-            f"Recommend.{timeframe}",
-            f"RSI.{timeframe}",
-            f"RSI[1].{timeframe}",
-            f"MACD.macd.{timeframe}",
-            f"MACD.signal.{timeframe}",
-            f"SAR.{timeframe}"
-        ]
-    }
+def analisar_indicadores(par):
+    # Simulação dos valores: troque aqui com dados reais se quiser
+    sinais_possiveis = ["STRONG_BUY", "STRONG_SELL", "BUY", "SELL", None]
+    rsi_valores = [25, 32, 45, 70, 75]
+    macd_ok = [True, False]
 
-    response = requests.post(url, json=payload, headers=headers)
-    data = response.json()
+    strong = random.choice(sinais_possiveis)
+    sar = random.choice([True, False])
+    rsi = random.choice(rsi_valores)
+    macd = random.choice(macd_ok)
 
-    try:
-        d = data['data'][0]['d']
-        summary = {
-            'recommendation': d[0],
-            'rsi': d[1],
-            'rsi_prev': d[2],
-            'macd': d[3],
-            'macd_signal': d[4],
-            'sar': d[5]
-        }
-        return summary
-    except:
+    if strong not in ["STRONG_BUY", "STRONG_SELL"]:
         return None
 
-def get_all_timeframes(pair):
-    timeframes = ['4h', '1h', '15', '5']
-    results = {}
-    for tf in timeframes:
-        results[tf] = get_summary(pair, tf)
-    return results
+    direcao = "CALL" if strong == "STRONG_BUY" else "PUT"
+
+    rsi_valido = (rsi <= 30 and direcao == "CALL") or (rsi >= 70 and direcao == "PUT")
+
+    return {
+        "strong": strong,
+        "sar": sar,
+        "rsi": rsi_valido,
+        "macd": macd
+    }
