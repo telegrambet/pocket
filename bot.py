@@ -14,7 +14,7 @@ from pytz import timezone
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-TOKEN_BOT = "7896187056:AAErAXN4VMDZQw9lyZDgkIH-0PX_qBUy4w0"
+TOKEN_BOT = "7896187056:AAHq6ssWb3WrB6LssiTsQB2JMA_X9ifcgR8"
 TELEGRAM_CHAT_ID = "1827644448"
 pares_ativos = ['EURUSD', 'EURJPY', 'EURGBP', 'GBPJPY', 'USDJPY']
 fuso = timezone('America/Sao_Paulo')
