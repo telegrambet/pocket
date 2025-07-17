@@ -38,7 +38,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# Botões
+# Manipulador dos botões
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -48,14 +48,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == 'stop_bot':
         await query.edit_message_text("⛔ Bot pausado.")
     elif query.data == 'cadastrar_sinais':
-        await query.edit_message_text("✍️ Envie os sinais no formato:\n`M5;EURUSD;14:30;CALL`", parse_mode='Markdown')
+        await query.edit_message_text(
+            "✍️ Envie os sinais no formato:\n`M5;EURUSD;14:30;CALL`",
+            parse_mode='Markdown'
+        )
         context.user_data["esperando_sinal"] = True
     elif query.data == 'excluir_sinais':
         if os.path.exists(CAMINHO_ARQUIVO):
             os.remove(CAMINHO_ARQUIVO)
-        await query.edit_message_text("🗑️ Todos os sinais cadastrados foram excluídos.")
+            await query.edit_message_text("🗑️ Todos os sinais cadastrados foram excluídos.")
+        else:
+            await query.edit_message_text("⚠️ Nenhum sinal encontrado para excluir.")
 
-# Receber sinal digitado
+# Receber mensagem de sinal manual
 async def receber_sinal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("esperando_sinal"):
         texto = update.message.text.strip()
@@ -75,14 +80,27 @@ async def receber_sinal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             await update.message.reply_text("✅ Sinal cadastrado com sucesso!")
         else:
-            await update.message.reply_text("❌ Formato inválido. Use:\n`M5;EURUSD;14:30;CALL`", parse_mode='Markdown')
+            await update.message.reply_text(
+                "❌ Formato inválido. Use:\n`M5;EURUSD;14:30;CALL`",
+                parse_mode='Markdown'
+            )
 
         context.user_data["esperando_sinal"] = False
 
-# Validação do sinal
+# Validação básica do sinal
 def validar_sinal(texto):
     partes = texto.split(";")
-    return len(partes) == 4 and partes[0] in ["M1", "M5", "M15"]
+    if len(partes) != 4:
+        return False
+
+    timeframe, par, horario, direcao = partes
+
+    return (
+        timeframe in ["M1", "M5", "M15"]
+        and par in ["EURUSD", "EURJPY", "EURGBP", "GBPJPY", "USDJPY"]
+        and direcao.upper() in ["CALL", "PUT"]
+        and ":" in horario and len(horario) == 5
+    )
 
 # Função principal
 def main():
