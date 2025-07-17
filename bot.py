@@ -2,7 +2,6 @@ import logging
 import json
 import os
 from tradingview import verificar_sinais
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -20,7 +19,7 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 # Caminho do arquivo de sinais
 CAMINHO_ARQUIVO = "sinais_cadastrados.json"
 
-# Configura os logs
+# Configura logs
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
@@ -29,7 +28,7 @@ logging.basicConfig(
 async def loop_verificacao(context: ContextTypes.DEFAULT_TYPE):
     await verificar_sinais(context)
 
-# Comando /start
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Start bot", callback_data='start_bot')],
@@ -99,12 +98,12 @@ async def receber_sinal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data["esperando_sinal"] = False
 
-# Validação do sinal
+# Validação
 def validar_sinal(texto):
     partes = texto.split(";")
     return len(partes) == 4 and partes[0] in ["M1", "M5", "M15"] and partes[3].upper() in ["CALL", "PUT"]
 
-# Função principal
+# Main
 def main():
     application = Application.builder().token(TOKEN_BOT).build()
 
@@ -112,25 +111,11 @@ def main():
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_sinal))
 
-    # ⏱ Verifica sinais a cada 60 segundos
+    # Verifica sinais a cada 60s
     application.job_queue.run_repeating(loop_verificacao, interval=60, first=1)
 
+    print("🤖 Bot iniciado com sucesso!")
     application.run_polling()
 
 if __name__ == "__main__":
     main()
-
-from apscheduler.schedulers.background import BackgroundScheduler
-from tradingview import verificar_sinais
-
-def iniciar_agendamento():
-    scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
-    scheduler.add_job(verificar_sinais, 'interval', minutes=1)
-    scheduler.start()
-
-# Dentro do main()
-if __name__ == '__main__':
-    print("Bot iniciado...")
-    iniciar_agendamento()
-    application.run_polling()
-    
