@@ -24,3 +24,11 @@ def analisar_indicadores(par):
         "rsi": rsi_valido,
         "macd": macd
     }
+
+# ✅ Função exigida pelo signals.py
+def verificar_estrategia(par):
+    resultado = analisar_indicadores(par)
+    if resultado:
+        if resultado["sar"] and resultado["rsi"] and resultado["macd"]:
+            return "CALL" if resultado["strong"] == "STRONG_BUY" else "PUT"
+    return None
