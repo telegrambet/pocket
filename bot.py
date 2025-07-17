@@ -14,6 +14,9 @@ from telegram.ext import (
     filters
 )
 
+from dotenv import load_dotenv
+load_dotenv()
+
 TOKEN_BOT = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 CAMINHO_ARQUIVO = "sinais_cadastrados.json"
