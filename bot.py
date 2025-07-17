@@ -8,7 +8,7 @@ from datetime import datetime
 import asyncio
 import pytz
 
-TOKEN = "SEU_TOKEN_DO_BOT"
+TOKEN = "7896187056:AAErAXN4VMDZQw9lyZDgkIH-0PX_qBUy4w0"
 
 # === Mensagem inicial com botões ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
