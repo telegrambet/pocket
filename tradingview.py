@@ -1,6 +1,7 @@
 import requests
 import json
 import os
+import time
 from datetime import datetime, timedelta
 import pytz
 
@@ -42,7 +43,10 @@ def get_recomendacoes(par):
 
 def verificar_sinais():
     if not os.path.exists(CAMINHO_ARQUIVO):
-        return
+        return False
+
+    sinais_confirmados = 0
+    com_sinais = False
 
     with open(CAMINHO_ARQUIVO, "r") as f:
         sinais = json.load(f)
@@ -56,7 +60,9 @@ def verificar_sinais():
             )
 
             if hora_sinal < agora or hora_sinal > agora + timedelta(hours=1):
-                continue  # fora do intervalo
+                continue  # fora do intervalo de 1h
+
+            com_sinais = True
 
             resultado = get_recomendacoes(par)
             if not resultado:
@@ -78,9 +84,16 @@ def verificar_sinais():
             )
 
             if confirmacao and rsi_confirma and macd_confirma:
-                enviar_telegram(f"📢 SINAL CONFIRMADO: {par} às {hora_str} ({direcao})")
+                mensagem = f"📢 SINAL CONFIRMADO: {par} às {hora_str} ({direcao})"
+                enviar_telegram(mensagem)
+                sinais_confirmados += 1
         except Exception as e:
             print(f"[ERRO VERIFICAR SINAL] {e}")
+
+    if not com_sinais:
+        enviar_telegram("⚠️ Nenhum sinal cadastrado para a próxima 1 hora.")
+    elif sinais_confirmados == 0:
+        enviar_telegram("⏳ Nenhum sinal confirmado no momento. Aguardando próximas análises...")
 
 def enviar_telegram(mensagem):
     url = f"https://api.telegram.org/bot{TOKEN_BOT}/sendMessage"
@@ -89,3 +102,11 @@ def enviar_telegram(mensagem):
         requests.post(url, data=payload)
     except:
         print("Erro ao enviar mensagem.")
+
+# Loop contínuo a cada 5 minutos
+if __name__ == "__main__":
+    while True:
+        print(f"[{datetime.now(TIMEZONE).strftime('%H:%M:%S')}] Verificando sinais...")
+        verificar_sinais()
+        time.sleep(300)  # espera 5 minutos
+            
