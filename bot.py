@@ -110,8 +110,15 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_sinal))
+    application.job_queue.run_repeating(lambda context: asyncio.create_task(loop_verificacao()), interval=60, first=1)
 
     application.run_polling()
 
 if __name__ == "__main__":
     main()
+
+async def loop_verificacao():
+    while True:
+        verificar_sinais()
+        await asyncio.sleep(60)  # espera 60 segundos
+        
