@@ -11,6 +11,9 @@ from tradingview_scraper import buscar_analise_tecnica  # Essa função você j�
 from pytz import timezone
 
 # --- VARIÁVEIS DE CONTROLE ---
+load_dotenv()
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+
 TOKEN_BOT = "7896187056:AAErAXN4VMDZQw9lyZDgkIH-0PX_qBUy4w0"
 TELEGRAM_CHAT_ID = "1827644448"
 pares_ativos = ['EURUSD', 'EURJPY', 'EURGBP', 'GBPJPY', 'USDJPY']
