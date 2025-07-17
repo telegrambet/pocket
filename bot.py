@@ -16,7 +16,8 @@ from signals import (
 )
 from technical_analysis import verificar_sinais_tecnicos  # Essa função você já criou
 
-TOKEN = "7896187056:AAErAXN4VMDZQw9lyZDgkIH-0PX_qBUy4w0"  # <-- Coloque seu token aqui
+load_dotenv()
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 # Configuração de log
 logging.basicConfig(level=logging.INFO)
