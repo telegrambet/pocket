@@ -3,7 +3,7 @@
 import asyncio
 from signals import buscar_sinais_cadastrados
 from indicadores import verificar_estrategia
-from telegram_bot import enviar_alerta
+from telegram_bot import enviar_mensagem
 from datetime import datetime, timedelta
 
 pares_monitorados = ["EURUSD", "EURJPY", "EURGBP", "GBPJPY", "USDJPY"]
