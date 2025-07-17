@@ -1,47 +1,99 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext
-from sinais import adicionar_sinal, excluir_sinais, listar_sinais
-from scheduler import iniciar_agendamento
-from config import TOKEN
+# bot.py
 
-async def start(update: Update, context: CallbackContext):
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+from signals import salvar_sinal, excluir_todos_sinais, buscar_sinais_cadastrados
+from indicadores import verificar_estrategia
+from datetime import datetime
+import asyncio
+import pytz
+
+TOKEN = "SEU_TOKEN_DO_BOT"
+
+# === Mensagem inicial com botões ===
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("Cadastrar sinais", callback_data='cadastrar')],
-        [InlineKeyboardButton("Excluir sinais", callback_data='excluir')],
+        [InlineKeyboardButton("✅ Cadastrar sinais", callback_data="cadastrar_sinais")],
+        [InlineKeyboardButton("❌ Excluir sinais", callback_data="excluir_sinais")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Bot de Sinais Pocket Option 💹", reply_markup=reply_markup)
+    await update.message.reply_text("Bem-vindo meu trader 🤖💸", reply_markup=reply_markup)
 
-async def button_handler(update: Update, context: CallbackContext):
+# === Handler dos botões ===
+async def botao_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if query.data == 'cadastrar':
-        await query.edit_message_text("Envie os sinais no formato:\n`M5;EURUSD;07:10;CALL`", parse_mode='Markdown')
-        context.user_data['cadastrando'] = True
+    if query.data == "cadastrar_sinais":
+        await query.edit_message_text("Envie o sinal no formato:\n\nM5;EURUSD;14:30;CALL")
+    elif query.data == "excluir_sinais":
+        excluir_todos_sinais()
+        await query.edit_message_text("✅ Todos os sinais foram excluídos com sucesso.")
 
-    elif query.data == 'excluir':
-        excluir_sinais()
-        await query.edit_message_text("Todos os sinais cadastrados foram excluídos com sucesso!")
+# === Receber e salvar sinais enviados ===
+async def receber_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    mensagem = update.message.text.strip().upper()
 
-async def mensagem_handler(update: Update, context: CallbackContext):
-    if context.user_data.get('cadastrando'):
-        texto = update.message.text.strip().upper()
-        if adicionar_sinal(texto):
-            await update.message.reply_text("✅ Sinal cadastrado com sucesso!")
-        else:
-            await update.message.reply_text("❌ Formato inválido! Use: M5;EURUSD;07:10;CALL")
+    try:
+        timeframe, par, hora, direcao = mensagem.split(";")
+        salvar_sinal(timeframe, par, hora, direcao)
+        await update.message.reply_text("✅ Sinal cadastrado com sucesso!")
+    except:
+        await update.message.reply_text("❌ Formato inválido. Use: M5;EURUSD;14:30;CALL")
 
+# === Verificador constante ===
+async def verificador_constante(application):
+    while True:
+        sinais = buscar_sinais_cadastrados()
+        agora = datetime.now(pytz.utc)
+
+        for sinal in sinais:
+            timeframe, par, hora_str, direcao = sinal
+            hora_sinal = datetime.strptime(hora_str, "%H:%M").replace(
+                year=agora.year, month=agora.month, day=agora.day, tzinfo=pytz.utc
+            )
+
+            # Dentro da próxima 1 hora
+            if 0 <= (hora_sinal - agora).total_seconds() <= 3600:
+                resultado = verificar_estrategia(par)
+
+                if resultado["direcao"] == direcao:
+                    mensagem = (
+                        f"✅ SINAL CONFIRMADO\n\n"
+                        f"PAR: {par}\n"
+                        f"⏰ Horário: {hora_str}\n"
+                        f"🧠 Estratégia: STRONG_{direcao}\n"
+                        f"📊 Timeframes: Confirmados\n"
+                        f"🟢 Entrada recomendada: {direcao}"
+                    )
+
+                    # Enviar para todos os administradores ou grupo
+                    for chat_id in application.chat_data:
+                        try:
+                            await application.bot.send_message(chat_id=chat_id, text=mensagem)
+                        except:
+                            pass
+
+        await asyncio.sleep(60)  # Verifica a cada minuto
+
+# === Guardar chat_id ao interagir ===
+async def salvar_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat_id
+    context.application.chat_data[chat_id] = True  # Apenas salva
+
+# === Inicializador do bot ===
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("sinais", lambda u, c: u.message.reply_text(str(listar_sinais()))))
-    app.add_handler(CommandHandler("excluir_sinais", lambda u, c: (excluir_sinais(), u.message.reply_text("Sinais excluídos!"))))
-    app.add_handler(telegram.ext.CallbackQueryHandler(button_handler))
-    app.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.TEXT, mensagem_handler))
+    app.add_handler(CallbackQueryHandler(botao_callback))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_mensagem))
+    app.add_handler(MessageHandler(filters.ALL, salvar_chat_id))  # Para salvar chat_id
 
-    iniciar_agendamento(app)
+    # Iniciar a verificação constante
+    asyncio.create_task(verificador_constante(app))
+
+    print("Bot rodando...")
     app.run_polling()
 
 if __name__ == "__main__":
