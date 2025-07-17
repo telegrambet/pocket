@@ -1,24 +1,55 @@
 import os
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import logging
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# Pega o token e chat_id do ambiente
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+# Puxa variáveis do ambiente
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Verificação básica no log
-print("✅ Iniciando bot...")
-if not TOKEN:
-    print("❌ Erro: TELEGRAM_TOKEN não encontrado nas variáveis de ambiente!")
-else:
-    print("✅ Token encontrado, iniciando polling...")
+# Configuração dos logs
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 
-# Função do comando /start
+# Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Fala jogador! ⚽🥇 Bot funcionando com sucesso!")
+    keyboard = [
+        [InlineKeyboardButton("Start bot", callback_data='start_bot')],
+        [InlineKeyboardButton("Stop bot", callback_data='stop_bot')],
+        [InlineKeyboardButton("Cadastrar sinais", callback_data='cadastrar_sinais')],
+        [InlineKeyboardButton("Excluir sinais", callback_data='excluir_sinais')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-# Inicializa e roda o bot
-if __name__ == '__main__':
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.run_polling()
+    await update.message.reply_text(
+        "Bom dia Trader, estamos em operação 💸🤖\nSaldo da banca: $0.00",
+        reply_markup=reply_markup
+    )
+
+# Botões Inline
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == 'start_bot':
+        await query.edit_message_text("✅ Bot reativado!")
+    elif query.data == 'stop_bot':
+        await query.edit_message_text("⛔ Bot pausado.")
+    elif query.data == 'cadastrar_sinais':
+        await query.edit_message_text("✍️ Envie os sinais no formato:\n`M5;EURUSD;14:30;CALL`", parse_mode='Markdown')
+    elif query.data == 'excluir_sinais':
+        await query.edit_message_text("🗑️ Todos os sinais cadastrados foram excluídos.")
+
+# Função principal
+def main():
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(button_handler))
+
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
+    
