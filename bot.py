@@ -1,93 +1,115 @@
+import logging
 import json
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+import os
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CommandHandler,
     CallbackQueryHandler,
-    ContextTypes,
     MessageHandler,
-    filters,
+    ContextTypes,
+    filters
 )
-import os
 
-# Caminho para armazenar os sinais
-CAMINHO_ARQUIVO_SINAIS = "sinais_cadastrados.json"
+# Variáveis com token e chat_id
+TOKEN_BOT = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Função para salvar os sinais
-def salvar_sinais(sinais):
-    with open(CAMINHO_ARQUIVO_SINAIS, "w") as f:
-        json.dump(sinais, f, indent=4)
+# Caminho do arquivo de sinais
+CAMINHO_ARQUIVO = "sinais_cadastrados.json"
 
-# Função para carregar os sinais
-def carregar_sinais():
-    if not os.path.exists(CAMINHO_ARQUIVO_SINAIS):
-        return []
-    with open(CAMINHO_ARQUIVO_SINAIS, "r") as f:
-        return json.load(f)
+# Configura os logs
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 
-# Comando /start
+# Função de saudação
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("Cadastrar sinais", callback_data="cadastrar_sinais")],
-        [InlineKeyboardButton("Excluir sinais", callback_data="excluir_sinais")]
+        [InlineKeyboardButton("Start bot", callback_data='start_bot')],
+        [InlineKeyboardButton("Stop bot", callback_data='stop_bot')],
+        [InlineKeyboardButton("Cadastrar sinais", callback_data='cadastrar_sinais')],
+        [InlineKeyboardButton("Excluir sinais", callback_data='excluir_sinais')],
+        [InlineKeyboardButton("Visualizar sinais", callback_data='visualizar_sinais')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Olá! Escolha uma opção:", reply_markup=reply_markup)
+
+    await update.message.reply_text(
+        "Bom dia Trader, estamos em operação 💸🤖\nSaldo da banca: $0.00",
+        reply_markup=reply_markup
+    )
 
 # Botões
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if query.data == "cadastrar_sinais":
-        await query.edit_message_text("Envie os sinais no formato:\n\nM5;EURUSD;14:30;CALL")
-        context.user_data["cadastrando_sinais"] = True
-
-    elif query.data == "excluir_sinais":
-        salvar_sinais([])  # limpa todos os sinais
-        await query.edit_message_text("✅ Todos os sinais foram excluídos com sucesso.")
-
-# Lógica para cadastrar sinais
-async def tratar_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get("cadastrando_sinais"):
-        sinais_recebidos = update.message.text.split("\n")
-        sinais_validos = []
-        for linha in sinais_recebidos:
-            partes = linha.strip().split(";")
-            if len(partes) == 4:
-                timeframe, par, horario, direcao = partes
-                if timeframe == "M5" and direcao.upper() in ["CALL", "PUT"]:
-                    sinais_validos.append(linha.strip())
-                else:
-                    await update.message.reply_text("❌ Formato inválido. Use:\nM5;EURUSD;14:30;CALL")
-                    return
+    if query.data == 'start_bot':
+        await query.edit_message_text("✅ Bot reativado!")
+    elif query.data == 'stop_bot':
+        await query.edit_message_text("⛔ Bot pausado.")
+    elif query.data == 'cadastrar_sinais':
+        await query.edit_message_text("✍️ Envie os sinais no formato:\n`M5;EURUSD;14:30;CALL`", parse_mode='Markdown')
+        context.user_data["esperando_sinal"] = True
+    elif query.data == 'excluir_sinais':
+        if os.path.exists(CAMINHO_ARQUIVO):
+            os.remove(CAMINHO_ARQUIVO)
+        await query.edit_message_text("🗑️ Todos os sinais cadastrados foram excluídos.")
+    elif query.data == 'visualizar_sinais':
+        if os.path.exists(CAMINHO_ARQUIVO):
+            with open(CAMINHO_ARQUIVO, "r") as f:
+                sinais = json.load(f)
+            if sinais:
+                resposta = "\n".join(sinais)
             else:
-                await update.message.reply_text("❌ Formato inválido. Use:\nM5;EURUSD;14:30;CALL")
-                return
+                resposta = "⚠️ Nenhum sinal cadastrado."
+        else:
+            resposta = "⚠️ Nenhum sinal cadastrado."
+        await query.edit_message_text(resposta)
 
-        sinais_existentes = carregar_sinais()
-        sinais_existentes.extend(sinais_validos)
-        salvar_sinais(sinais_existentes)
+# Receber sinal digitado
+async def receber_sinal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data.get("esperando_sinal"):
+        texto = update.message.text.strip()
+        linhas = texto.split("\n")
+        sinais_validos = []
 
-        context.user_data["cadastrando_sinais"] = False
+        for linha in linhas:
+            linha = linha.strip()
+            if validar_sinal(linha):
+                sinais_validos.append(linha)
 
-        resposta = "\n".join(sinais_validos)
-        await update.message.reply_text(f"✅ Sinais cadastrados:\n\n{resposta}")
+        if sinais_validos:
+            sinais = []
+            if os.path.exists(CAMINHO_ARQUIVO):
+                with open(CAMINHO_ARQUIVO, "r") as f:
+                    sinais = json.load(f)
 
-# Inicialização
+            sinais.extend(sinais_validos)
+
+            with open(CAMINHO_ARQUIVO, "w") as f:
+                json.dump(sinais, f, indent=4)
+
+            await update.message.reply_text(f"✅ {len(sinais_validos)} sinal(is) cadastrado(s) com sucesso!")
+        else:
+            await update.message.reply_text("❌ Nenhum sinal válido encontrado. Use:\n`M5;EURUSD;14:30;CALL`", parse_mode='Markdown')
+
+        context.user_data["esperando_sinal"] = False
+
+# Validação do sinal
+def validar_sinal(texto):
+    partes = texto.split(";")
+    return len(partes) == 4 and partes[0] in ["M1", "M5", "M15"] and partes[3].upper() in ["CALL", "PUT"]
+
+# Função principal
+def main():
+    application = Application.builder().token(TOKEN_BOT).build()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(button_handler))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_sinal))
+
+    application.run_polling()
+
 if __name__ == "__main__":
-    import asyncio
-
-    async def main():
-        token = os.getenv("TELEGRAM_TOKEN")
-        app = ApplicationBuilder().token(token).build()
-
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(CallbackQueryHandler(button))
-        app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), tratar_mensagem))
-
-        print("Bot rodando...")
-        await app.run_polling()
-
-    asyncio.run(main())
-                    
+    main()
