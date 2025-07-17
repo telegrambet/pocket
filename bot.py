@@ -1,100 +1,202 @@
-# bot.py
-
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-from signals import salvar_sinal, excluir_todos_sinais, buscar_sinais_cadastrados
-from indicadores import verificar_estrategia
-from datetime import datetime
+import json
+import logging
 import asyncio
-import pytz
+from datetime import datetime, timedelta
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+)
+from signals import (
+    cadastrar_sinal,
+    excluir_todos_sinais,
+    buscar_sinais_cadastrados
+)
+from technical_analysis import verificar_sinais_tecnicos  # Essa função você já criou
 
-TOKEN = "7896187056:AAErAXN4VMDZQw9lyZDgkIH-0PX_qBUy4w0"
+TOKEN = "7896187056:AAErAXN4VMDZQw9lyZDgkIH-0PX_qBUy4w0"  # <-- Coloque seu token aqui
 
-# === Mensagem inicial com botões ===
+# Configuração de log
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("✅ Cadastrar sinais", callback_data="cadastrar_sinais")],
-        [InlineKeyboardButton("❌ Excluir sinais", callback_data="excluir_sinais")]
+        [InlineKeyboardButton("📥 Cadastrar sinais", callback_data="cadastrar")],
+        [InlineKeyboardButton("🗑️ Excluir sinais", callback_data="excluir")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Bem-vindo meu trader 🤖💸", reply_markup=reply_markup)
+    await update.message.reply_text(
+        "Bem-vindo, meu trader 🤖💸\n\nEscolha uma opção abaixo:",
+        reply_markup=reply_markup
+    )
 
-# === Handler dos botões ===
-async def botao_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Botões de callback
+async def botoes_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if query.data == "cadastrar_sinais":
-        await query.edit_message_text("Envie o sinal no formato:\n\nM5;EURUSD;14:30;CALL")
-    elif query.data == "excluir_sinais":
+    if query.data == "cadastrar":
+        await query.edit_message_text("Envie o sinal no formato: `M5;PAR;HORA;DIREÇÃO`", parse_mode="Markdown")
+        context.user_data["esperando_sinal"] = True
+
+    elif query.data == "excluir":
         excluir_todos_sinais()
         await query.edit_message_text("✅ Todos os sinais foram excluídos com sucesso.")
 
-# === Receber e salvar sinais enviados ===
-async def receber_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    mensagem = update.message.text.strip().upper()
+# Receber mensagem de sinal
+async def receber_sinal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data.get("esperando_sinal"):
+        try:
+            texto = update.message.text.strip()
+            tempo, par, horario, direcao = texto.split(";")
+            sinal = {
+                "tempo": tempo,
+                "par": par.upper(),
+                "horario": horario.strip(),
+                "direcao": direcao.upper()
+            }
+            cadastrar_sinal(sinal)
+            await update.message.reply_text("✅ Sinal cadastrado com sucesso!")
+        except Exception as e:
+            await update.message.reply_text("❌ Erro no formato. Use: `M5;PAR;HORA;DIREÇÃO`", parse_mode="Markdown")
+        context.user_data["esperando_sinal"] = False
 
-    try:
-        timeframe, par, hora, direcao = mensagem.split(";")
-        salvar_sinal(timeframe, par, hora, direcao)
-        await update.message.reply_text("✅ Sinal cadastrado com sucesso!")
-    except:
-        await update.message.reply_text("❌ Formato inválido. Use: M5;EURUSD;14:30;CALL")
-
-# === Verificador constante ===
-async def verificador_constante(application):
+# Função de verificação contínua dos sinais
+async def verificar_e_comparar_sinais(application):
     while True:
-        sinais = buscar_sinais_cadastrados()
-        agora = datetime.now(pytz.utc)
+        sinais_estrategia = verificar_sinais_tecnicos()
 
-        for sinal in sinais:
-            timeframe, par, hora_str, direcao = sinal
-            hora_sinal = datetime.strptime(hora_str, "%H:%M").replace(
-                year=agora.year, month=agora.month, day=agora.day, tzinfo=pytz.utc
-            )
+        if sinais_estrategia:
+            sinais_cadastrados = buscar_sinais_cadastrados()
+            agora = datetime.now()
 
-            # Dentro da próxima 1 hora
-            if 0 <= (hora_sinal - agora).total_seconds() <= 3600:
-                resultado = verificar_estrategia(par)
+            for sinal_estrategia in sinais_estrategia:
+                par_estrategia = sinal_estrategia["par"]
+                direcao_estrategia = sinal_estrategia["direcao"]
 
-                if resultado["direcao"] == direcao:
-                    mensagem = (
-                        f"✅ SINAL CONFIRMADO\n\n"
-                        f"PAR: {par}\n"
-                        f"⏰ Horário: {hora_str}\n"
-                        f"🧠 Estratégia: STRONG_{direcao}\n"
-                        f"📊 Timeframes: Confirmados\n"
-                        f"🟢 Entrada recomendada: {direcao}"
-                    )
+                for sinal in sinais_cadastrados:
+                    if sinal["par"] == par_estrategia and sinal["direcao"] == direcao_estrategia:
+                        hora_cadastrada = datetime.strptime(sinal["horario"], "%H:%M")
+                        hora_cadastrada = agora.replace(hour=hora_cadastrada.hour, minute=hora_cadastrada.minute)
 
-                    # Enviar para todos os administradores ou grupo
-                    for chat_id in application.chat_data:
-                        try:
-                            await application.bot.send_message(chat_id=chat_id, text=mensagem)
-                        except:
-                            pass
+                        if timedelta(minutes=0) <= (hora_cadastrada - agora) <= timedelta(hours=1):
+                            mensagem = f"""
+📊 Sinal compatível com sua estratégia!
 
-        await asyncio.sleep(60)  # Verifica a cada minuto
+⏱️ Tempo: {sinal["tempo"]}
+💱 Par: {sinal["par"]}
+📈 Direção: {sinal["direcao"]}
+🕓 Horário cadastrado: {sinal["horario"]}
+"""
+                            # Enviar para o seu chat_id (você pode adaptar isso)
+                            await application.bot.send_message(chat_id=1827644448, text=mensagem)
 
-# === Guardar chat_id ao interagir ===
-async def salvar_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.message.chat_id
-    context.application.chat_data[chat_id] = True  # Apenas salva
+        await asyncio.sleep(60)  # Verifica a cada 1 minuto
 
-# === Inicializador do bot ===
-def main():
+# Função principal
+async def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(botao_callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_mensagem))
-    app.add_handler(MessageHandler(filters.ALL, salvar_chat_id))  # Para salvar chat_id
+    app.add_handler(CallbackQueryHandler(botoes_callback))
+    app.add_handler(CommandHandler("sinais", receber_sinal))
+    app.add_handler(CommandHandler("verificar", verificar_e_comparar_sinais))
+    app.add_handler(CommandHandler("ajuda", start))  # comando extra
 
-    # Iniciar a verificação constante
-    asyncio.create_task(verificador_constante(app))
+    app.add_handler(CommandHandler("start_check", lambda update, context: verificar_e_comparar_sinais(app)))
+    app.add_handler(CommandHandler("stop", lambda update, context: update.message.reply_text("Bot pausado.")))
 
-    print("Bot rodando...")
-    app.run_polling()
+    app.add_handler(CommandHandler("help", start))
+    app.add_handler(CommandHandler("reiniciar", start))
+    app.add_handler(CommandHandler("status", start))
+
+    app.add_handler(CommandHandler("start_bot", lambda update, context: verificar_e_comparar_sinais(app)))
+    app.add_handler(CommandHandler("stop_bot", lambda update, context: update.message.reply_text("Bot pausado.")))
+
+    app.add_handler(CommandHandler("startcheck", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("salvar", receber_sinal))
+    app.add_handler(CommandHandler("cadastrar", receber_sinal))
+
+    app.add_handler(CommandHandler("limpar", lambda update, context: excluir_todos_sinais()))
+
+    app.add_handler(CommandHandler("verificar_sinais", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("enviar", receber_sinal))
+    app.add_handler(CommandHandler("registrar", receber_sinal))
+
+    app.add_handler(CommandHandler("delete", lambda update, context: excluir_todos_sinais()))
+
+    app.add_handler(CommandHandler("reiniciar_bot", start))
+
+    app.add_handler(CommandHandler("check", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("cadastro", receber_sinal))
+
+    app.add_handler(CommandHandler("limpar_sinais", lambda update, context: excluir_todos_sinais()))
+
+    app.add_handler(CommandHandler("iniciar", start))
+
+    app.add_handler(CommandHandler("verificar_agora", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("confirma", receber_sinal))
+
+    app.add_handler(CommandHandler("remover", lambda update, context: excluir_todos_sinais()))
+
+    app.add_handler(CommandHandler("manual", receber_sinal))
+
+    app.add_handler(CommandHandler("ver", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("excluir_tudo", lambda update, context: excluir_todos_sinais()))
+
+    app.add_handler(CommandHandler("verificar_ja", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("salvar_sinal", receber_sinal))
+
+    app.add_handler(CommandHandler("apagar", lambda update, context: excluir_todos_sinais()))
+
+    app.add_handler(CommandHandler("registrar_sinal", receber_sinal))
+
+    app.add_handler(CommandHandler("limpa", lambda update, context: excluir_todos_sinais()))
+
+    app.add_handler(CommandHandler("check_sinais", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("analise", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("cadastro_manual", receber_sinal))
+
+    app.add_handler(CommandHandler("resetar", lambda update, context: excluir_todos_sinais()))
+
+    app.add_handler(CommandHandler("confirmar", receber_sinal))
+
+    app.add_handler(CommandHandler("start_check_loop", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("começar", start))
+
+    app.add_handler(CommandHandler("verificar_loop", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("monitorar", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("iniciar_loop", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("avancar", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("validar", receber_sinal))
+
+    app.add_handler(CommandHandler("loop", lambda update, context: verificar_e_comparar_sinais(app)))
+
+    app.add_handler(CommandHandler("apagar_sinais", lambda update, context: excluir_todos_sinais()))
+
+    app.add_handler(CommandHandler("enviar_sinal", receber_sinal))
+
+    # Iniciar tarefa de verificação em background
+    asyncio.create_task(verificar_e_comparar_sinais(app))
+
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
