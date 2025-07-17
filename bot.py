@@ -23,7 +23,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        "Bom dia Trader, estamos em operação 💸🤖\nSaldo da banca: $0.00",
+        "Bom dia Trader, estamos em operação 💸🤖",
         reply_markup=reply_markup
     )
 
