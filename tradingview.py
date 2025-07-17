@@ -1,43 +1,91 @@
-# tradingview.py
-
 import requests
+import json
+import os
+from datetime import datetime, timedelta
+import pytz
 
-def get_signal(pair, interval):
-    url = f"https://scanner.tradingview.com/crypto/scan"
-    headers = {'Content-Type': 'application/json'}
-    
-    payload = {
-        "symbols": {
-            "tickers": [f"OANDA:{pair}"],
-            "query": {"types": []}
-        },
-        "columns": [
-            f"Recommend.Other",
-            f"Recommend.All",
-            f"Recommend.MA",
-            "RSI",
-            "MACD.macd",
-            "MACD.signal",
-            "SAR"
-        ]
-    }
+CAMINHO_ARQUIVO = "sinais_cadastrados.json"
+PAISES = ['EURUSD', 'EURJPY', 'EURGBP', 'GBPJPY', 'USDJPY']
+TOKEN_BOT = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TIMEZONE = pytz.timezone("America/Sao_Paulo")
 
+def get_recomendacoes(par):
     try:
-        response = requests.post(url, json=payload, headers=headers)
+        url = f"https://scanner.tradingview.com/america/scan"
+        headers = {"Content-Type": "application/json"}
+        payload = {
+            "symbols": {"tickers": [f"OANDA:{par}"], "query": {"types": []}},
+            "columns": [
+                "Recommend.All", "Recommend.MA", "RSI", "RSI[1]",
+                "MACD.macd", "MACD.signal", "Stoch.K", "Stoch.D",
+                "Sar", "close"
+            ]
+        }
+        response = requests.post(url, headers=headers, json=payload)
         data = response.json()
-
-        if not data["data"]:
+        if not data['data']:
             return None
 
-        result = data["data"][0]["d"]
+        indicadores = data['data'][0]['d']
         return {
-            "recommendation": result[1],  # Recommend.All
-            "rsi": result[3],
-            "macd": result[4],
-            "macd_signal": result[5],
-            "sar": result[6]
+            "par": par,
+            "recomendacao": indicadores[0],
+            "sar": indicadores[8],
+            "rsi": indicadores[2],
+            "macd": indicadores[4],
+            "macd_signal": indicadores[5],
         }
     except Exception as e:
-        print(f"Erro ao buscar sinais para {pair}: {e}")
+        print(f"[ERRO TRADINGVIEW] {e}")
         return None
-      
+
+def verificar_sinais():
+    if not os.path.exists(CAMINHO_ARQUIVO):
+        return
+
+    with open(CAMINHO_ARQUIVO, "r") as f:
+        sinais = json.load(f)
+
+    agora = datetime.now(TIMEZONE)
+    for sinal in sinais:
+        try:
+            tempo, par, hora_str, direcao = sinal.split(";")
+            hora_sinal = datetime.strptime(hora_str.strip(), "%H:%M").replace(
+                year=agora.year, month=agora.month, day=agora.day, tzinfo=TIMEZONE
+            )
+
+            if hora_sinal < agora or hora_sinal > agora + timedelta(hours=1):
+                continue  # fora do intervalo
+
+            resultado = get_recomendacoes(par)
+            if not resultado:
+                continue
+
+            confirmacao = (
+                resultado["recomendacao"] >= 0.5 and direcao == "CALL" or
+                resultado["recomendacao"] <= -0.5 and direcao == "PUT"
+            )
+
+            rsi_confirma = (
+                resultado["rsi"] > 30 and direcao == "CALL" or
+                resultado["rsi"] < 70 and direcao == "PUT"
+            )
+
+            macd_confirma = (
+                resultado["macd"] > resultado["macd_signal"] and direcao == "CALL" or
+                resultado["macd"] < resultado["macd_signal"] and direcao == "PUT"
+            )
+
+            if confirmacao and rsi_confirma and macd_confirma:
+                enviar_telegram(f"📢 SINAL CONFIRMADO: {par} às {hora_str} ({direcao})")
+        except Exception as e:
+            print(f"[ERRO VERIFICAR SINAL] {e}")
+
+def enviar_telegram(mensagem):
+    url = f"https://api.telegram.org/bot{TOKEN_BOT}/sendMessage"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": mensagem}
+    try:
+        requests.post(url, data=payload)
+    except:
+        print("Erro ao enviar mensagem.")
