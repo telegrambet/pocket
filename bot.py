@@ -25,7 +25,11 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# Função de saudação
+# ⏱ Função executada a cada 60 segundos
+async def loop_verificacao(context: ContextTypes.DEFAULT_TYPE):
+    await verificar_sinais(context)
+
+# Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Start bot", callback_data='start_bot')],
@@ -61,10 +65,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if os.path.exists(CAMINHO_ARQUIVO):
             with open(CAMINHO_ARQUIVO, "r") as f:
                 sinais = json.load(f)
-            if sinais:
-                resposta = "\n".join(sinais)
-            else:
-                resposta = "⚠️ Nenhum sinal cadastrado."
+            resposta = "\n".join(sinais) if sinais else "⚠️ Nenhum sinal cadastrado."
         else:
             resposta = "⚠️ Nenhum sinal cadastrado."
         await query.edit_message_text(resposta)
@@ -110,15 +111,11 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_sinal))
-    application.job_queue.run_repeating(lambda context: asyncio.create_task(loop_verificacao()), interval=60, first=1)
+
+    # ⏱ Verifica sinais a cada 60 segundos
+    application.job_queue.run_repeating(loop_verificacao, interval=60, first=1)
 
     application.run_polling()
 
 if __name__ == "__main__":
     main()
-
-async def loop_verificacao():
-    while True:
-        verificar_sinais()
-        await asyncio.sleep(60)  # espera 60 segundos
-        
