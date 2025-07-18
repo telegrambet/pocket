@@ -26,7 +26,7 @@ logging.basicConfig(
 
 # ⏱ Função executada a cada 60 segundos
 async def loop_verificacao(context: ContextTypes.DEFAULT_TYPE):
-    await verificar_sinais(context)
+    verificar_sinais()
 
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
