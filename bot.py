@@ -1,6 +1,4 @@
-import logging
-import json
-import os
+
 from tradingview import verificar_sinais
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
