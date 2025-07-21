@@ -1,22 +1,23 @@
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from bot.commands import (
-    start,
-    cadastrar_sinal,
-    listar_sinais,
-    consultar_sinais_tecnicos,
-    stop_bot,
-    restart_bot
-)
+from telegram.ext import ApplicationBuilder
+from bot.commands import get_handlers
+from bot.scheduler import start_schedulers
+import os
+from dotenv import load_dotenv
 
-def main():
-    app = ApplicationBuilder().token("SEU_TOKEN_AQUI").build()
+load_dotenv()
+TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("cadastrarsinal", cadastrar_sinal))
-    app.add_handler(CommandHandler("listarsinais", listar_sinais))
-    app.add_handler(CommandHandler("consultartecnico", consultar_sinais_tecnicos))
-    app.add_handler(CommandHandler("stopbot", stop_bot))
-    app.add_handler(CommandHandler("restartbot", restart_bot))
+def start_bot():
+    app = ApplicationBuilder().token(TOKEN).build()
 
+    for handler in get_handlers():
+        app.add_handler(handler)
+
+    # Iniciar agendamentos automáticos
+    start_schedulers(app)
+
+    print("✅ Bot rodando...")
     app.run_polling()
+
+if __name__ == '__main__':
+    start_bot()
