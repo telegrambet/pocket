@@ -1,9 +1,7 @@
 from telegram import Update
 from telegram.ext import CommandHandler, CallbackContext
-from bot.utils import (
-    cadastrar_sinal, listar_sinais, consultar_sinais_tecnicos,
-    start_bot, stop_bot, restart_bot
-)
+from bot.utils import cadastrar_sinal, listar_sinais, consultar_sinais_tecnicos
+from bot.scheduler import stop_bot, restart_bot
 
 def start(update: Update, context: CallbackContext):
     update.message.reply_text("🤖 Bot iniciado!")
