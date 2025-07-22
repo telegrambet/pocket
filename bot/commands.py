@@ -1,43 +1,53 @@
-from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
-from bot.utils import cadastrar_sinal, listar_sinais, consultar_sinais_tecnicos
-from bot.scheduler import stop_bot, restart_bot
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes
+from bot.utils import (
+    salvar_sinais,
+    ler_sinais,
+    verificar_sinais_tecnicos,
+    status_indicadores
+)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🤖 Bot iniciado!")
+    keyboard = [
+        [InlineKeyboardButton("Cadastrar Sinais", callback_data='cadastrar')],
+        [InlineKeyboardButton("Consultar Sinais", callback_data='consultar')],
+        [InlineKeyboardButton("Consultar Técnicos", callback_data='tecnicos')],
+        [InlineKeyboardButton("STOP", callback_data='stop')],
+        [InlineKeyboardButton("RESTART", callback_data='restart')],
+    ]
+    await update.message.reply_text(
+        "Bot de Sinais Técnicos", reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
-async def cadastrar_sinal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 2:
-        await update.message.reply_text("Uso: /cadastrarsinal PAR DIREÇÃO (ex: /cadastrarsinal EUR/USD CALL)")
-        return
-    par = context.args[0].upper()
-    direcao = context.args[1].upper()
-    resposta = cadastrar_sinal(par, direcao)
-    await update.message.reply_text(resposta)
+async def cadastrar_sinais(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    texto = " ".join(context.args)
+    salvar_sinais(texto)
+    await update.message.reply_text("✅ Sinais cadastrados com sucesso!")
 
-async def listar_sinais_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    resposta = listar_sinais()
-    await update.message.reply_text(resposta)
+async def consultar_sinais(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    sinais = ler_sinais()
+    await update.message.reply_text(f"📌 Sinais cadastrados:\n{sinais}")
 
-async def consultar_tecnico_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.message.chat_id
-    resposta = consultar_sinais_tecnicos()
-    await context.bot.send_message(chat_id=chat_id, text=resposta)
+async def consultar_tecnicos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    resultado = verificar_sinais_tecnicos()
+    await update.message.reply_text(f"📊 Resultado técnico:\n{resultado}")
 
-async def stop_bot_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    stop_bot()
+async def stop_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("⛔ Bot pausado.")
 
-async def restart_bot_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    restart_bot()
+async def restart_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Bot reiniciado.")
 
-def get_handlers():
-    return [
-        CommandHandler("start", start),
-        CommandHandler("cadastrarsinal", cadastrar_sinal_cmd),
-        CommandHandler("listarsinais", listar_sinais_cmd),
-        CommandHandler("consultartecnico", consultar_tecnico_cmd),
-        CommandHandler("stopbot", stop_bot_cmd),
-        CommandHandler("restartbot", restart_bot_cmd),
-    ]
+async def botao_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    comandos = {
+        'cadastrar': cadastrar_sinais,
+        'consultar': consultar_sinais,
+        'tecnicos': consultar_tecnicos,
+        'stop': stop_bot,
+        'restart': restart_bot
+    }
+    if data in comandos:
+        await comandos[data](update, context)
