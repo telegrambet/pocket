@@ -1,67 +1,51 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 
-# Lista para armazenar sinais manualmente
-sinais = []
+# Simula banco simples
+SINAIS_FILE = "sinais.txt"
 
-def cadastrar_sinal(par, direcao):
-    sinais.append({
-        "par": par,
-        "direcao": direcao
-    })
-    return f"Sinal cadastrado: {par} - {direcao}"
+def salvar_sinais(texto):
+    with open(SINAIS_FILE, "a") as f:
+        for linha in texto.strip().split("\n"):
+            f.write(linha.strip() + "\n")
 
-def listar_sinais():
-    if not sinais:
+def ler_sinais():
+    if not os.path.exists(SINAIS_FILE):
         return "Nenhum sinal cadastrado."
-    return "\n".join([f"{s['par']} - {s['direcao']}" for s in sinais])
+    with open(SINAIS_FILE, "r") as f:
+        return f.read()
 
-def consultar_sinais_tecnicos():
-    resposta = ""
+def verificar_sinais_tecnicos():
+    sinais = ler_sinais().strip().split("\n")
+    resultados = []
     for sinal in sinais:
-        par = sinal["par"]
-        direcao = sinal["direcao"]
+        try:
+            tf, par, hora, direcao = sinal.split(";")
+            indicadores = status_indicadores(par)
+            compatibilidade = "✅ Compatível" if direcao in indicadores else "❌ Não compatível"
+            resultados.append(f"{par} ({tf} - {hora} - {direcao})\n{indicadores}\n{compatibilidade}\n")
+        except:
+            resultados.append(f"⚠️ Erro ao processar sinal: {sinal}")
+    return "\n".join(resultados)
 
-        indicadores = get_tradingview_indicators(par)
-        investing = get_investing_signal(par)
+def status_indicadores(par):
+    par_formatado = par.upper().replace("/", "")
+    url = f"https://br.investing.com/technical/{par_formatado}-technical-summary"
+    headers = {"User-Agent": "Mozilla/5.0"}
 
-        resposta += f"\n📊 {par} ({direcao})\n"
-        if investing:
-            resposta += f"5M: {investing.get('5M')}\n15M: {investing.get('15M')}\n1H: {investing.get('1H')}\n"
-        else:
-            resposta += "Erro ao obter sinais do Investing.com\n"
-
-        resposta += f"\nRSI: {indicadores['RSI']}\nMACD: {indicadores['MACD']}\n"
-        resposta += f"Estocástico: {indicadores['Estocástico']}\nParabolic SAR: {indicadores['Parabolic SAR']}\n"
-        resposta += "-"*30 + "\n"
-
-    return resposta if resposta else "Nenhum sinal cadastrado para consultar."
-
-# Indicadores simulados (adaptável para API ou scraping real)
-def get_tradingview_indicators(pair):
-    return {
-        "RSI": "Neutral",
-        "MACD": "Cruzando para cima",
-        "Estocástico": "Cruzando para cima",
-        "Parabolic SAR": "CALL"
-    }
-
-# Sinais do Investing.com (simulado — você pode melhorar o scraping)
-def get_investing_signal(pair):
     try:
-        url = f"https://br.investing.com/technical/personalized-quotes-technical-summary"
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.content, "html.parser")
+        r = requests.get(url, headers=headers)
+        soup = BeautifulSoup(r.content, "html.parser")
 
-        # Esta parte deve ser adaptada para obter o par desejado.
-        return {
-            "5M": "COMPRA FORTE",
-            "15M": "COMPRA",
-            "1H": "NEUTRO"
-        }
+        timeframes = ['5 minutos', '15 minutos', '1 hora']
+        resultado = []
+
+        for tf in timeframes:
+            el = soup.find("td", string=tf)
+            if el:
+                valor = el.find_next("td").text.strip()
+                resultado.append(f"{tf}: {valor}")
+        return "\n".join(resultado)
     except Exception as e:
-        print(f"[ERRO - Investing] {e}")
-        return None
+        return f"Erro ao buscar indicadores: {e}"
