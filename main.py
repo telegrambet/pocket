@@ -1,7 +1,5 @@
 import os
-import time
 import asyncio
-from datetime import datetime
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
@@ -42,9 +40,9 @@ async def monitorar_explosoes(app):
             for mensagem in mensagens:
                 await app.bot.send_message(chat_id=os.getenv("TELEGRAM_CHAT_ID"), text=mensagem)
         else:
-            print(f"{datetime.utcnow()} - Nenhuma explosão detectada.")
+            print("Nenhuma explosão detectada.")
 
-        await asyncio.sleep(15 * 60)  # espera 15 minutos
+        await asyncio.sleep(15 * 60)  # 15 minutos
 
 async def main():
     token = os.getenv("TELEGRAM_TOKEN")
@@ -52,11 +50,13 @@ async def main():
 
     application.add_handler(CommandHandler("start", start))
 
-    # Start a task to monitor explosions in background
-    application.job_queue.run_once(lambda ctx: asyncio.create_task(monitorar_explosoes(application)), when=0)
+    # Inicia a tarefa de monitoramento assíncrono
+    asyncio.create_task(monitorar_explosoes(application))
 
     print("Bot rodando com monitoramento automático...")
     await application.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # NÃO usar asyncio.run aqui para evitar conflito no loop de eventos
+    import asyncio
+    asyncio.get_event_loop().run_until_complete(main())
