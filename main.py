@@ -1,64 +1,41 @@
 # pocket/main.py
 
 import time
-from datetime import datetime, timedelta
-from api_twelve import get_candle_data
-from alert_telegram import enviar_alerta
-from utils import calcular_pips, tempo_restante_candle
+from api_twelve import get_last_candle
+from telegram_alert import enviar_alerta
+from utils import calcular_variacao, interpretar_movimento
 
-# Pares a serem monitorados
-PARES = ['EUR/USD', 'EUR/GBP', 'EUR/JPY', 'AUD/JPY', 'GBP/JPY', 'EUR/CHF']
+pares = ["EUR/USD", "EUR/GBP", "EUR/JPY", "AUD/JPY", "GBP/JPY", "EUR/CHF"]
 
-# Parâmetros
-TIMEFRAME = '15min'
-INTERVALO_ANALISE = 600  # 10 minutos em segundos
-LIMITE_PIPS = 20         # Explosão mínima em pips
+def simbolo_twelve(par):
+    return par.replace("/", "")
 
-def monitorar_explosao():
-    print("🚨 Iniciando monitoramento de explosão direcional...")
+def analisar_pares():
+    for par in pares:
+        symbol = simbolo_twelve(par)
+        candle_atual, candle_anterior = get_last_candle(symbol)
 
-    while True:
-        for par in PARES:
-            print(f"⏳ Analisando {par}...")
+        if candle_atual:
+            open_price = candle_atual["open"]
+            close_price = candle_atual["close"]
+            variacao = calcular_variacao(open_price, close_price)
+            direcao, texto_pips = interpretar_movimento(variacao)
 
-            candles = get_candle_data(par, TIMEFRAME, 2)
-            if not candles or len(candles) < 2:
-                print(f"❌ Erro ao buscar candles de {par}")
-                continue
-
-            candle_atual = candles[0]
-            horario_inicio = datetime.strptime(candle_atual['datetime'], "%Y-%m-%d %H:%M:%S")
-            agora = datetime.utcnow()
-
-            # Verifica se já passou pelo menos 10 minutos
-            if (agora - horario_inicio).total_seconds() < INTERVALO_ANALISE:
-                continue
-
-            preco_abertura = float(candle_atual['open'])
-            preco_atual = float(candle_atual['close'])
-            direcao = "Alta" if preco_atual > preco_abertura else "Baixa"
-
-            pips = calcular_pips(preco_abertura, preco_atual, par)
-
-            if abs(pips) >= LIMITE_PIPS:
-                tempo_restante = tempo_restante_candle(horario_inicio, agora, 900)  # 15 min = 900s
-
-                msg = f"""
-🚨 Explosão Direcional Detectada
-
-📍 Par: {par.replace('/', '')}
-🕒 Timeframe: M15
-⏱️ Tempo de análise: primeiros 10 minutos do candle
-📈 Direção dominante: {direcao}
-📊 Velocidade: {pips:+.1f} pips em 10 minutos
-⏳ Tempo restante no candle: {tempo_restante} minutos
-🎯 Possível retração ou continuação forte!
-                """.strip()
-
-                enviar_alerta(msg)
-                time.sleep(2)
-
-        time.sleep(60)  # Aguarda antes de reiniciar o loop
+            if direcao:
+                mensagem = (
+                    f"🚨 *Explosão Direcional Detectada*\n\n"
+                    f"📍 Par: {par}\n"
+                    f"🕒 Timeframe: M15\n"
+                    f"⏱️ Tempo de análise: primeiros 10 minutos do candle\n"
+                    f"📈 Direção dominante: *{direcao}*\n"
+                    f"📊 Velocidade: {texto_pips} em 10 minutos\n"
+                    f"⏳ Tempo restante: ~5 minutos\n"
+                    f"🎯 *Possível retração ou continuação forte!*"
+                )
+                enviar_alerta(mensagem)
 
 if __name__ == "__main__":
-    monitorar_explosao()
+    while True:
+        print("Analisando pares...")
+        analisar_pares()
+        time.sleep(60 * 15)  # roda a cada 15 minutos
