@@ -19,7 +19,11 @@ def check_retraction_signal(symbol, candles, average_pips):
 
     if pips >= average_pips:
         direction = '💥 POSSÍVEL RETRAÇÃO DE ALTA' if open_price > close_price else '💥 POSSÍVEL RETRAÇÃO DE BAIXA'
-        msg = f\"\"\"\n📍 *{symbol.replace('frx', '')}*\n{direction}\nPips: {pips:.2f} (média: {average_pips})\n⏱️ Timeframe: M5\"\"\"
+        msg = f"""
+📍 *{symbol.replace('frx', '')}*
+{direction}
+Pips: {pips:.2f} (média: {average_pips})
+⏱️ Timeframe: M5"""
         return msg
 
     return None
