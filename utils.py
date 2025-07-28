@@ -1,11 +1,11 @@
 # utils.py
 
 PAIRS = {
-    'frxEURJPY': 6.1,
-    'frxGBPJPY': 7.5,
-    'frxCADJPY': 5.9,
-    'frxAUDCAD': 4.2,
-    'frxEURGBP': 3.3,
+    'frxEURJPY': 16.1,
+    'frxGBPJPY': 17.5,
+    'frxCADJPY': 15.9,
+    'frxAUDCAD': 14.2,
+    'frxEURGBP': 13.3,
 }
 
 def calculate_pips(open_price, close_price):
