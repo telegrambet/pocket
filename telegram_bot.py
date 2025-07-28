@@ -15,5 +15,5 @@ async def send_alert(message):
     await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message, parse_mode=ParseMode.MARKDOWN)
 
 async def send_welcome():
-    msg = \"👋 Olá, trader!\n\nBot de retração iniciado com sucesso.\nAguardando sinais... 🔎📉📈\"
+    msg = "👋 Olá, trader!\n\nBot de retração iniciado com sucesso.\nAguardando sinais... 🔎📉📈"
     await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
