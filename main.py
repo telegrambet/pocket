@@ -5,10 +5,12 @@ from deriv import get_candles
 from telegram_bot import send_alert, send_welcome
 from utils import check_retraction_signal
 from datetime import datetime, timedelta
+import pytz  # <--- import pytz para fuso horário
 
 CHECK_INTERVAL = 180  # 3 minutos
 
 def is_retraction_window():
+    # Aqui pode continuar usando datetime.now(), mas cuidado com o fuso do servidor
     minute = datetime.now().minute
     return (minute % 5) in [0, 1, 2, 3]
 
@@ -21,10 +23,19 @@ def gerar_sinal_formatado(symbol: str, direcao_frase: str) -> str:
     else:
         direcao = "DESCONHECIDA"
 
-    # Próximo horário arredondado (múltiplo de 5)
-    agora = datetime.now()
+    # Obtém a hora UTC atual e converte para horário de Brasília
+    utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
+    brasilia_tz = pytz.timezone('America/Sao_Paulo')
+    agora = utc_now.astimezone(brasilia_tz)
+
+    # Arredonda para o próximo múltiplo de 5 minutos
     minuto = ((agora.minute // 5) + 1) * 5
-    proximo_horario = agora.replace(minute=0, second=0, microsecond=0) + timedelta(minutes=minuto)
+    # Se minuto for 60, aumenta uma hora e zera minuto
+    if minuto == 60:
+        proximo_horario = agora.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    else:
+        proximo_horario = agora.replace(minute=0, second=0, microsecond=0) + timedelta(minutes=minuto)
+
     hora_formatada = proximo_horario.strftime("%H:%M")
 
     return f"M5;{symbol};{hora_formatada};{direcao}"
