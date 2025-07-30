@@ -4,16 +4,30 @@ from utils import PAIRS
 from deriv import get_candles
 from telegram_bot import send_alert, send_welcome
 from utils import check_retraction_signal
-from datetime import datetime
+from datetime import datetime, timedelta
 
 CHECK_INTERVAL = 180  # 3 minutos
 
 def is_retraction_window():
-    """
-    Retorna True se o horário atual estiver dentro da janela de retração (ex: 00-03, 05-08, etc.)
-    """
     minute = datetime.now().minute
-    return (minute % 5) in [0, 1, 2, 3]  # ex: minutos 00 a 03, 05 a 08, etc
+    return (minute % 5) in [0, 1, 2, 3]
+
+def gerar_sinal_formatado(symbol: str, direcao_frase: str) -> str:
+    # Direção do sinal
+    if "baixa" in direcao_frase.lower():
+        direcao = "PUT"
+    elif "alta" in direcao_frase.lower():
+        direcao = "CALL"
+    else:
+        direcao = "DESCONHECIDA"
+
+    # Próximo horário arredondado (múltiplo de 5)
+    agora = datetime.now()
+    minuto = ((agora.minute // 5) + 1) * 5
+    proximo_horario = agora.replace(minute=0, second=0, microsecond=0) + timedelta(minutes=minuto)
+    hora_formatada = proximo_horario.strftime("%H:%M")
+
+    return f"M5;{symbol};{hora_formatada};{direcao}"
 
 async def monitor():
     while True:
@@ -24,6 +38,10 @@ async def monitor():
                     result = check_retraction_signal(symbol, candles, average_pips)
                     if result:
                         await send_alert(result)
+
+                        # Gerar e enviar frase no formato M5;PAR;HORA;DIREÇÃO
+                        frase_sinal = gerar_sinal_formatado(symbol, result)
+                        await send_alert(frase_sinal)
         else:
             print("⏳ Fora da janela de retração. Aguardando...")
         await asyncio.sleep(CHECK_INTERVAL)
