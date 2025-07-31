@@ -30,7 +30,6 @@ def gerar_sinal_formatado(symbol: str, direcao_frase: str) -> str:
 
     # Arredonda para o próximo múltiplo de 5 minutos
     minuto = ((agora.minute // 5) + 1) * 5
-    # Se minuto for 60, aumenta uma hora e zera minuto
     if minuto == 60:
         proximo_horario = agora.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     else:
@@ -38,7 +37,11 @@ def gerar_sinal_formatado(symbol: str, direcao_frase: str) -> str:
 
     hora_formatada = proximo_horario.strftime("%H:%M")
 
-    return f"M5;{symbol};{hora_formatada};{direcao}"
+    # Remove "frx" apenas para exibição
+    symbol_formatado = symbol.replace("frx", "")
+
+    return f"M5;{symbol_formatado};{hora_formatada};{direcao}"
+
 
 async def monitor():
     while True:
