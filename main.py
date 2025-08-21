@@ -7,7 +7,7 @@ from utils import check_retraction_signal
 from datetime import datetime, timedelta
 import pytz  # <--- import pytz para fuso horário
 
-CHECK_INTERVAL = 180  # 3 minutoss
+CHECK_INTERVAL = 180  # 3 minutos
 
 def is_retraction_window():
     # Aqui pode continuar usando datetime.now(), mas cuidado com o fuso do servidor
