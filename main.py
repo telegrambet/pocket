@@ -29,7 +29,7 @@ def gerar_sinal_formatado(symbol: str, direcao_frase: str) -> str:
     agora = utc_now.astimezone(brasilia_tz)
 
     # Arredonda para o próximo múltiplo de 5 minutos
-    minuto = ((agora.minute // 5) + 1) * 5
+    minuto = ((agora.minute // 5) + 1) * 5 - 1 
     if minuto == 60:
         proximo_horario = agora.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     else:
