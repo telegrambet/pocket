@@ -40,7 +40,7 @@ def gerar_sinal_formatado(symbol: str, direcao_frase: str) -> str:
     # Remove "frx" apenas para exibição
     symbol_formatado = symbol.replace("frx", "")
 
-    return f"M5;{symbol_formatado};{hora_formatada};{direcao}"
+    return f"M1;{symbol_formatado};{hora_formatada};{direcao}"
 
 
 async def monitor():
