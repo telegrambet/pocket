@@ -1,5 +1,6 @@
 # main.py
 import asyncio
+from fibonacci import check_fibonacci_touch
 from utils import PAIRS
 from deriv import get_candles
 from telegram_bot import send_alert, send_welcome
