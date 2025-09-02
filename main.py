@@ -59,7 +59,8 @@ async def monitor():
                         await send_alert(frase_sinal)
         else:
             print("⏳ Fora da janela de retração. Aguardando...")
-        await asyncio.sleep(CHECK_INTERVAL)  
+        await asyncio.sleep(CHECK_INTERVAL)
+
 async def main():
     await send_welcome()
     print("✅ Bot iniciado e monitorando sinais...")
