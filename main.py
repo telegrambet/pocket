@@ -61,15 +61,6 @@ async def monitor():
             print("⏳ Fora da janela de retração. Aguardando...")
         await asyncio.sleep(CHECK_INTERVAL)
 
-async def run():
-    while True:
-        for pair in PAIRS.keys():
-            fib_signal = check_fibonacci_touch(pair)
-            if fib_signal:
-                await send_alert(fib_signal)
-
-        await asyncio.sleep(CHECK_INTERVAL)
-
 async def main():
     await send_welcome()
     print("✅ Bot iniciado e monitorando sinais...")
