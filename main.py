@@ -12,7 +12,7 @@ CHECK_INTERVAL = 180  # 3 minutos
 def is_retraction_window():
     # Aqui pode continuar usando datetime.now(), mas cuidado com o fuso do servidor
     minute = datetime.now().minute
-    return (minute % 5) in [0, 1, 2, 3]
+    return (minute % 5) == 3
 
 def gerar_sinal_formatado(symbol: str, direcao_frase: str) -> str:
     # Direção do sinal
